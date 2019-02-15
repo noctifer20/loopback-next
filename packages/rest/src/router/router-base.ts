@@ -7,7 +7,7 @@ import {Request} from '../types';
 import {getPathVariables} from './openapi-path';
 import {createResolvedRoute, ResolvedRoute, RouteEntry} from './route-entry';
 import {compareRoute} from './route-sort';
-import {RestRouter} from './rest-router';
+import {RestRouter, RestRouterOptions} from './rest-router';
 
 /**
  * Base router implementation that only handles path without variables
@@ -18,8 +18,10 @@ export abstract class BaseRouter implements RestRouter {
    */
   protected routesWithoutPathVars: {[path: string]: RouteEntry} = {};
 
+  constructor(protected options: RestRouterOptions = {strict: false}) {}
+
   protected getKeyForRoute(route: RouteEntry) {
-    return getKey(route.verb, route.path);
+    return this.getKey(route.verb, route.path);
   }
 
   add(route: RouteEntry) {
@@ -32,7 +34,7 @@ export abstract class BaseRouter implements RestRouter {
   }
 
   protected getKeyForRequest(request: Request) {
-    return getKey(request.method, request.path);
+    return this.getKey(request.method, request.path);
   }
 
   find(request: Request) {
@@ -47,6 +49,24 @@ export abstract class BaseRouter implements RestRouter {
     routes = routes.concat(this.listRoutesWithPathVars());
     // Sort the routes so that they show up in OpenAPI spec in order
     return routes.sort(compareRoute);
+  }
+
+  /**
+   * Build a key for verb+path
+   * @param verb HTTP verb/method
+   * @param path URL path
+   */
+  protected getKey(verb: string, path: string) {
+    // Use lower case
+    verb = (verb && verb.toLowerCase()) || 'get';
+    // Prepend `/` if needed
+    path = path || '/';
+    path = path.startsWith('/') ? path : `/${path}`;
+    if (!this.options.strict && path !== '/' && path.endsWith('/')) {
+      // Remove trailing `/`
+      path = path.substring(0, path.length - 1);
+    }
+    return `/${verb}${path}`;
   }
 
   // The following abstract methods need to be implemented by its subclasses
@@ -68,23 +88,4 @@ export abstract class BaseRouter implements RestRouter {
    * List routes with path variables
    */
   protected abstract listRoutesWithPathVars(): RouteEntry[];
-}
-
-/**
- * Build a key for verb+path
- * @param verb HTTP verb/method
- * @param path URL path
- */
-function getKey(verb: string, path: string) {
-  // Use lower case
-  verb = (verb && verb.toLowerCase()) || 'get';
-  // Prepend `/` if needed
-  path = path || '/';
-  path = path.startsWith('/') ? path : `/${path}`;
-  if (path !== '/' && path.endsWith('/')) {
-    // Remove trailing `/`
-    // See https://github.com/strongloop/loopback-next/issues/2188
-    path = path.substring(0, path.length - 1);
-  }
-  return `/${verb}${path}`;
 }

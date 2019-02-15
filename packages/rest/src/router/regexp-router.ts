@@ -3,13 +3,16 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {RouteEntry, createResolvedRoute, ResolvedRoute} from './route-entry';
-import {Request, PathParameterValues} from '../types';
+import {inject} from '@loopback/context';
 import {inspect} from 'util';
-import {compareRoute} from './route-sort';
-import pathToRegExp = require('path-to-regexp');
-import {BaseRouter} from './router-base';
+import {RestBindings} from '../keys';
+import {PathParameterValues, Request} from '../types';
 import {toExpressPath} from './openapi-path';
+import {RestRouterOptions} from './rest-router';
+import {createResolvedRoute, ResolvedRoute, RouteEntry} from './route-entry';
+import {compareRoute} from './route-sort';
+import {BaseRouter} from './router-base';
+import pathToRegExp = require('path-to-regexp');
 
 const debug = require('debug')('loopback:rest:router:regexp');
 
@@ -36,10 +39,20 @@ export class RegExpRouter extends BaseRouter {
     }
   }
 
+  constructor(
+    @inject(RestBindings.ROUTER_OPTIONS, {optional: true})
+    options?: RestRouterOptions,
+  ) {
+    super(options);
+  }
+
   protected addRouteWithPathVars(route: RouteEntry) {
     const path = toExpressPath(route.path);
     const keys: pathToRegExp.Key[] = [];
-    const regexp = pathToRegExp(path, keys, {strict: false, end: true});
+    const regexp = pathToRegExp(path, keys, {
+      strict: this.options.strict,
+      end: true,
+    });
     const entry: RegExpRouteEntry = Object.assign(route, {keys, regexp});
     this.routes.push(entry);
     this._sorted = false;
